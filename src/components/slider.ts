@@ -58,8 +58,12 @@ class Slider {
 
       this.swiper = new Swiper(swiperEl, {
         loop: false,
-        spaceBetween: 24,
-        slidesPerView: 'auto',
+        effect: 'fade',
+        fadeEffect: {
+          crossFade: true,
+        },
+        spaceBetween: 0,
+        slidesPerView: 1,
         navigation: navigationConfig,
         pagination: paginationConfig,
         slideActiveClass: 'is-active',
