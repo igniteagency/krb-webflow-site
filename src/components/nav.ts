@@ -5,46 +5,74 @@ const HIDE_THRESHOLD = 100;
 const HIDDEN_CLASS = 'is-hidden';
 const TRANSPARENT_CLASS = 'is-transparent';
 
-function initNav() {
-  const navbarWrapperEl = document.querySelector<HTMLElement>(NAVBAR_WRAPPER_SELECTOR);
-  const navbarComponentEl = navbarWrapperEl?.querySelector<HTMLElement>(NAVBAR_COMPONENT_SELECTOR);
+export function initNav() {
+  const navbarWrapperEls = document.querySelectorAll<HTMLElement>(NAVBAR_WRAPPER_SELECTOR);
 
-  if (!navbarWrapperEl || !navbarComponentEl) {
-    console.error('Navbar wrapper or component not found', navbarWrapperEl, navbarComponentEl);
-    return;
-  }
+  navbarWrapperEls.forEach((navbarWrapperEl) => {
+    const navbarComponentEl = navbarWrapperEl.querySelector<HTMLElement>(NAVBAR_COMPONENT_SELECTOR);
 
-  let previousScrollY = window.scrollY;
-  let isTicking = false;
+    if (!navbarComponentEl) {
+      console.debug('Skipping empty/placeholder navbar wrapper:', navbarWrapperEl);
+      return;
+    }
 
-  const updateNavState = () => {
-    const currentScrollY = window.scrollY;
-    const isPastThreshold = currentScrollY > HIDE_THRESHOLD;
-    const isScrollingDown = currentScrollY > previousScrollY;
+    console.debug('Navbar script initialized successfully.', { navbarWrapperEl, navbarComponentEl });
 
-    navbarComponentEl.classList.toggle(TRANSPARENT_CLASS, !isPastThreshold);
-    navbarWrapperEl.classList.toggle(HIDDEN_CLASS, isPastThreshold && isScrollingDown);
+    let previousScrollY = window.scrollY;
+    let isTicking = false;
+    let transparentTimeoutId: number | null = null;
 
-    previousScrollY = currentScrollY;
-    isTicking = false;
-  };
+    const updateNavState = () => {
+      const currentScrollY = window.scrollY;
+      const isPastThreshold = currentScrollY > HIDE_THRESHOLD;
+      const isScrollingDown = currentScrollY > previousScrollY;
+      const isHiding = isPastThreshold && isScrollingDown;
 
-  window.addEventListener(
-    'scroll',
-    () => {
-      if (isTicking) return;
+      console.debug('updateNavState firing:', {
+        currentScrollY,
+        previousScrollY,
+        isPastThreshold,
+        isScrollingDown,
+        isHiding,
+      });
 
-      window.requestAnimationFrame(updateNavState);
-      isTicking = true;
-    },
-    { passive: true }
-  );
+      if (transparentTimeoutId !== null) {
+        window.clearTimeout(transparentTimeoutId);
+        transparentTimeoutId = null;
+      }
 
-  updateNavState();
-}
+      navbarWrapperEl.classList.toggle(HIDDEN_CLASS, isHiding);
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initNav);
-} else {
-  initNav();
+      if (!isPastThreshold) {
+        navbarComponentEl.classList.add(TRANSPARENT_CLASS);
+      } else {
+        if (isHiding) {
+          // Delay removal of transparency while it slides out of view to avoid flash to white
+          transparentTimeoutId = window.setTimeout(() => {
+            navbarComponentEl.classList.remove(TRANSPARENT_CLASS);
+            transparentTimeoutId = null;
+          }, 400); // 400ms matches the slide-out transition duration
+        } else {
+          // If we are showing it (scrolling up), make it opaque immediately
+          navbarComponentEl.classList.remove(TRANSPARENT_CLASS);
+        }
+      }
+
+      previousScrollY = currentScrollY;
+      isTicking = false;
+    };
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (isTicking) return;
+
+        window.requestAnimationFrame(updateNavState);
+        isTicking = true;
+      },
+      { passive: true }
+    );
+
+    updateNavState();
+  });
 }
