@@ -121,3 +121,15 @@ window.conditionalLoadScript = function (selector, url) {
     return window.loadScript(url);
   }
 };
+
+function loadSliderComponentIfPresent() {
+  if (document.querySelector('[data-slider-el="component"], .slider-gallery_component')) {
+    window.loadScript('components/slider.js', { name: 'slider', placement: 'head' });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadSliderComponentIfPresent);
+} else {
+  loadSliderComponentIfPresent();
+}
