@@ -1,15 +1,19 @@
 /**
  * General Slider component
- * To create standalone sliders on the page, add swiper script and this component script to the page
+ *
+ * If a `[data-slider-el="component"]` wrapper is present on the page, this script loads
+ * Swiper's JS and initialises every matching component once Swiper is available.
  */
+const COMPONENT_SELECTOR = '[data-slider-el="component"]';
+const SWIPER_JS_URL = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
 
 class Slider {
-  COMPONENT_SELECTOR = '[data-slider-el="component"]';
+  COMPONENT_SELECTOR = COMPONENT_SELECTOR;
   NAV_PREV_BUTTON_SELECTOR = '[data-slider-el="nav-prev"]';
   NAV_NEXT_BUTTON_SELECTOR = '[data-slider-el="nav-next"]';
 
   swiperComponents: NodeListOf<HTMLElement> | [];
-  swiper: Swiper | null;
+  swiper: unknown | null = null;
 
   constructor() {
     this.swiperComponents = document.querySelectorAll(this.COMPONENT_SELECTOR);
@@ -52,6 +56,55 @@ class Slider {
   }
 }
 
-document.addEventListener('scriptLoaded:swiper', () => {
+let hasInitialisedSlider = false;
+
+function hasSliderComponent() {
+  return Boolean(document.querySelector(COMPONENT_SELECTOR));
+}
+
+function isSwiperReady() {
+  return typeof Swiper !== 'undefined';
+}
+
+function initSlider() {
+  if (hasInitialisedSlider || !hasSliderComponent() || !isSwiperReady()) {
+    return;
+  }
+
+  hasInitialisedSlider = true;
   new Slider();
-});
+}
+
+function loadSwiper() {
+  if (isSwiperReady()) {
+    initSlider();
+    return;
+  }
+
+  if (!window.loadScript) {
+    console.error('window.loadScript is required to load Swiper. Make sure entry.js loads first.');
+    return;
+  }
+
+  window
+    .loadScript(SWIPER_JS_URL, {
+      placement: 'head',
+      scriptName: 'swiper',
+    })
+    .then(initSlider)
+    .catch((error) => {
+      console.error('Failed to load Swiper JS', error);
+    });
+}
+
+document.addEventListener('scriptLoaded:swiper', initSlider);
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (hasSliderComponent()) {
+      loadSwiper();
+    }
+  });
+} else if (hasSliderComponent()) {
+  loadSwiper();
+}
