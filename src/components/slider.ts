@@ -1,10 +1,10 @@
 /**
  * General Slider component
  *
- * If a `[data-slider-el="component"]` wrapper is present on the page, this script loads
- * Swiper's JS and initialises every matching component once Swiper is available.
+ * If a slider wrapper is present on the page, this script loads Swiper's JS and initialises
+ * every matching component once Swiper is available.
  */
-const COMPONENT_SELECTOR = '[data-slider-el="component"]';
+const COMPONENT_SELECTOR = '[data-slider-el="component"], .slider-gallery_component';
 const SWIPER_JS_URL = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
 
 class Slider {
@@ -25,6 +25,11 @@ class Slider {
       const swiperEl = swiperComponent.querySelector('.swiper');
       if (!swiperEl) {
         console.error('`.swiper` element not found', swiperComponent);
+        return;
+      }
+
+      if (!swiperEl.querySelector('.swiper-wrapper') || !swiperEl.querySelector('.swiper-slide')) {
+        console.debug('Swiper wrapper/slides not found, skipping slider', swiperComponent);
         return;
       }
 
