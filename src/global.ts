@@ -35,6 +35,7 @@ function UIFunctions() {
   duplicateMarqueeList();
   animatedDetailsAccordions();
   initNav();
+  window.conditionalLoadScript('[data-slider-el="component"]', 'components/slider.js');
 }
 
 function webflowOverrides() {
