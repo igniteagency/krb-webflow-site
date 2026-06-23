@@ -1,6 +1,7 @@
 import { animatedDetailsAccordions } from '$components/accordions';
 import Dialog from '$components/dialog';
 import { initNav } from '$components/nav';
+import { initNewsletter } from '$components/newsletter';
 import { setCurrentYear } from '$utils/current-year';
 import '$utils/disable-webflow-scroll';
 import { disableWebflowAnchorSmoothScroll } from '$utils/disable-webflow-scroll';
@@ -33,6 +34,7 @@ function initComponents() {
 
 function UIFunctions() {
   duplicateMarqueeList();
+  initNewsletter();
   animatedDetailsAccordions();
   initNav();
   window.conditionalLoadScript('[data-slider-el="component"]', 'components/slider.js');
