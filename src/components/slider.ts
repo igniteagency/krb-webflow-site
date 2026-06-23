@@ -11,6 +11,7 @@ class Slider {
   COMPONENT_SELECTOR = COMPONENT_SELECTOR;
   NAV_PREV_BUTTON_SELECTOR = '[data-slider-el="nav-prev"]';
   NAV_NEXT_BUTTON_SELECTOR = '[data-slider-el="nav-next"]';
+  PAGINATION_SELECTOR = '[data-slider-el="pagination"]';
 
   swiperComponents: NodeListOf<HTMLElement> | [];
   swiper: unknown | null = null;
@@ -23,13 +24,17 @@ class Slider {
   initSliders() {
     this.swiperComponents.forEach((swiperComponent) => {
       const swiperEl = swiperComponent.querySelector('.swiper');
-      if (!swiperEl) {
-        console.error('`.swiper` element not found', swiperComponent);
+      const swiperWrapperEl = swiperComponent.querySelector('.swiper-wrapper');
+      const slideEls = swiperComponent.querySelectorAll('.swiper-slide');
+
+      if (!swiperEl || !swiperWrapperEl || !slideEls.length) {
+        console.warn('Skipping invalid slider component', swiperComponent);
         return;
       }
 
       const navPrevButtonEl = swiperComponent.querySelector(this.NAV_PREV_BUTTON_SELECTOR);
       const navNextButtonEl = swiperComponent.querySelector(this.NAV_NEXT_BUTTON_SELECTOR);
+      const paginationEl = swiperComponent.querySelector(this.PAGINATION_SELECTOR);
 
       const navigationConfig =
         navPrevButtonEl && navNextButtonEl
@@ -40,11 +45,27 @@ class Slider {
             }
           : false;
 
+      const paginationConfig = paginationEl
+        ? {
+            el: paginationEl,
+            clickable: true,
+            bulletClass: 'slider_pagination-bullet',
+            bulletActiveClass: 'is-active',
+            renderBullet: (_index: number, className: string) =>
+              `<button type="button" class="${className}"></button>`,
+          }
+        : false;
+
       this.swiper = new Swiper(swiperEl, {
         loop: false,
-        spaceBetween: 24,
-        slidesPerView: 'auto',
+        effect: 'fade',
+        fadeEffect: {
+          crossFade: true,
+        },
+        spaceBetween: 0,
+        slidesPerView: 1,
         navigation: navigationConfig,
+        pagination: paginationConfig,
         slideActiveClass: 'is-active',
         slidePrevClass: 'is-previous',
         slideNextClass: 'is-next',
