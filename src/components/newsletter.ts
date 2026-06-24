@@ -20,6 +20,7 @@ export function initNewsletter() {
     const mainDetails = getMainNewsletterDetails(component);
 
     populateSideNav(component);
+    initResponsiveSideNav(component);
     initMainContentDetails(mainDetails);
   });
 }
@@ -61,6 +62,28 @@ function populateSideNav(component: HTMLElement) {
 
   sideNavWrapper.querySelectorAll(SIDE_NAV_DETAILS_SELECTOR).forEach((item) => item.remove());
   sideNavWrapper.append(...sideNavItems);
+}
+
+function initResponsiveSideNav(component: HTMLElement) {
+  const sideNavDetails = component.querySelector<HTMLDetailsElement>(SIDE_NAV_DETAILS_SELECTOR);
+  const sideNavContainer = sideNavDetails?.parentElement;
+
+  if (!sideNavContainer?.parentElement) return;
+
+  const placeholder = document.createComment('newsletter side nav mobile placeholder');
+  sideNavContainer.before(placeholder);
+
+  const syncSideNav = () => {
+    if (desktopMediaQuery.matches) {
+      if (!sideNavContainer.isConnected) placeholder.after(sideNavContainer);
+      return;
+    }
+
+    sideNavContainer.remove();
+  };
+
+  syncSideNav();
+  desktopMediaQuery.addEventListener('change', syncSideNav);
 }
 
 function getNewsletterPeriods(component: HTMLElement) {
@@ -106,10 +129,8 @@ function getMainNewsletterDetails(component: HTMLElement) {
 
 function initMainContentDetails(detailsList: HTMLDetailsElement[]) {
   const syncDetails = () => {
-    if (!desktopMediaQuery.matches) return;
-
     detailsList.forEach((details) => {
-      details.open = true;
+      details.open = desktopMediaQuery.matches;
     });
   };
 
