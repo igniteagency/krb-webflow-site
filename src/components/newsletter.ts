@@ -19,10 +19,6 @@ export function initNewsletter() {
   components.forEach((component) => {
     const mainDetails = getMainNewsletterDetails(component);
 
-    mainDetails.forEach((details) => {
-      details.dataset.accordion = 'false';
-    });
-
     populateSideNav(component);
     initMainContentDetails(mainDetails);
   });
