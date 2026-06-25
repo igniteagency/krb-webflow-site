@@ -6,6 +6,14 @@
  */
 const COMPONENT_SELECTOR = '[data-slider-el="component"]';
 const SWIPER_JS_URL = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
+const DEFAULT_SWIPER_SPEED_IN_MS = 300;
+const DURATION_ATTRIBUTE = 'sliderDuration';
+
+function getSliderDuration(swiperComponent: HTMLElement) {
+  const duration = Number(swiperComponent.dataset[DURATION_ATTRIBUTE]);
+
+  return Number.isFinite(duration) && duration > 0 ? duration : DEFAULT_SWIPER_SPEED_IN_MS;
+}
 
 class Slider {
   COMPONENT_SELECTOR = COMPONENT_SELECTOR;
@@ -55,10 +63,12 @@ class Slider {
               `<button type="button" class="${className}"></button>`,
           }
         : false;
+      const speed = getSliderDuration(swiperComponent);
 
       this.swiper = new Swiper(swiperEl, {
         loop: false,
         rewind: true,
+        speed,
         autoplay: {
           delay: 3000,
           disableOnInteraction: false,
