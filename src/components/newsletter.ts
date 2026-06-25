@@ -1,3 +1,5 @@
+import { initLightboxGallery } from '$components/lightbox';
+
 const COMPONENT_SELECTOR = '.newsletter_component';
 const SIDE_NAV_DETAILS_SELECTOR = '.newsletter_side-nav_details';
 const SIDE_NAV_LINK_SELECTOR = '.newsletter_side-nav_link';
@@ -7,7 +9,6 @@ const NEWSLETTER_RICH_TEXT_SELECTOR = '.newsletter_rich-text.w-richtext';
 const NEWSLETTER_CONTENT_SELECTOR = '.newsletter-content_component';
 const NEWSLETTER_CONTENT_TOC_SELECTOR = '.newsletter-content_toc';
 const NEWSLETTER_TRANSITION_CSS_ID = 'krb-newsletter-readmore-transition-css';
-const NEWSLETTER_LIGHTBOX_CSS_ID = 'krb-newsletter-lightbox-template-css';
 const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
 
 const desktopMediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
@@ -16,13 +17,6 @@ type NewsletterPeriod = {
   year: string;
   term: string;
   id: string;
-};
-
-type NewsletterLightboxItem = {
-  img: HTMLImageElement;
-  src: string;
-  alt: string;
-  caption: string;
 };
 
 export function initNewsletter() {
@@ -445,257 +439,17 @@ function setTocLinkText(link: HTMLAnchorElement, text: string) {
 function initNewsletterLightbox(component: HTMLElement) {
   const richText = getNewsletterRichText(component);
   if (!richText) return;
-  if (richText.dataset.lightboxInitialised === 'true') return;
 
-  const images = Array.from(richText.querySelectorAll<HTMLImageElement>('img'))
-    .filter((img) => img.currentSrc || img.src)
-    .filter((img, index, allImages) => allImages.indexOf(img) === index);
-
-  if (!images.length) return;
-
-  const items = images.map((img, index) => {
-    img.dataset.newsletterLightboxIndex = String(index);
-    img.setAttribute('tabindex', '0');
-    img.setAttribute('role', 'button');
-    img.setAttribute('aria-label', img.alt ? `Open image: ${img.alt}` : 'Open image');
-
-    return {
-      img,
-      src: getImageSrc(img),
-      alt: img.alt || '',
-      caption: getImageCaption(img),
-    };
+  initLightboxGallery({
+    root: richText,
+    template: component.querySelector<HTMLElement>('[data-lightbox-template], [data-newsletter-lightbox-template]'),
+    label: 'Newsletter image gallery',
+    initialisedKey: 'lightboxInitialised',
+    imageIndexAttribute: 'newsletterLightboxIndex',
+    overlayAttribute: 'data-newsletter-lightbox',
+    bodyOpenClass: 'newsletter-lightbox-open',
+    triggerImages: true,
   });
-
-  addNewsletterLightboxCSS();
-
-  const template = component.querySelector<HTMLElement>('[data-newsletter-lightbox-template]');
-  const lightbox = template ? template.cloneNode(true) : createFallbackLightbox();
-
-  if (!(lightbox instanceof HTMLElement)) return;
-
-  lightbox.removeAttribute('data-newsletter-lightbox-template');
-  lightbox.setAttribute('data-newsletter-lightbox', '');
-  lightbox.setAttribute('role', 'dialog');
-  lightbox.setAttribute('aria-modal', 'true');
-  lightbox.setAttribute('aria-label', 'Newsletter image gallery');
-  lightbox.setAttribute('aria-hidden', 'true');
-
-  if (template) {
-    lightbox.style.removeProperty('display');
-  }
-
-  document.body.appendChild(lightbox);
-  bindNewsletterLightbox(lightbox, items);
-  richText.dataset.lightboxInitialised = 'true';
-}
-
-function addNewsletterLightboxCSS() {
-  if (document.getElementById(NEWSLETTER_LIGHTBOX_CSS_ID)) return;
-
-  const style = document.createElement('style');
-  style.id = NEWSLETTER_LIGHTBOX_CSS_ID;
-  style.textContent = `
-    .newsletter_rich-text img[data-newsletter-lightbox-index] {
-      cursor: zoom-in;
-    }
-
-    body.newsletter-lightbox-open {
-      overflow: hidden;
-    }
-
-    [data-newsletter-lightbox-template] {
-      display: none !important;
-    }
-
-    .newsletter-lightbox,
-    [data-newsletter-lightbox] {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .newsletter-lightbox.is-open,
-    [data-newsletter-lightbox].is-open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .newsletter-lightbox__image,
-    [data-lightbox-image] {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-function createFallbackLightbox() {
-  const fallback = document.createElement('div');
-  fallback.className = 'newsletter-lightbox';
-  fallback.setAttribute('data-newsletter-lightbox', '');
-  fallback.innerHTML = `
-    <button class="newsletter-lightbox__button newsletter-lightbox__close" type="button" data-lightbox-close aria-label="Close image gallery">×</button>
-    <button class="newsletter-lightbox__button newsletter-lightbox__prev" type="button" data-lightbox-prev aria-label="Previous image">‹</button>
-    <div class="newsletter-lightbox__stage" data-lightbox-stage>
-      <img class="newsletter-lightbox__image" data-lightbox-image alt="">
-    </div>
-    <button class="newsletter-lightbox__button newsletter-lightbox__next" type="button" data-lightbox-next aria-label="Next image">›</button>
-    <div class="newsletter-lightbox__meta">
-      <p class="newsletter-lightbox__caption" data-lightbox-caption></p>
-      <p class="newsletter-lightbox__counter" data-lightbox-counter></p>
-    </div>
-  `;
-
-  return fallback;
-}
-
-function bindNewsletterLightbox(lightbox: HTMLElement, items: NewsletterLightboxItem[]) {
-  const imageEl =
-    lightbox.querySelector<HTMLImageElement>('[data-lightbox-image]') ||
-    lightbox.querySelector<HTMLImageElement>('img');
-  const captionEl = lightbox.querySelector<HTMLElement>('[data-lightbox-caption]');
-  const counterEl = lightbox.querySelector<HTMLElement>('[data-lightbox-counter]');
-  const closeButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-close]');
-  const prevButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-prev]');
-  const nextButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-next]');
-  const stage =
-    lightbox.querySelector<HTMLElement>('[data-lightbox-stage]') ||
-    imageEl?.parentElement ||
-    lightbox;
-
-  if (!imageEl) return;
-
-  let currentIndex = 0;
-  let lastFocusedElement: Element | null = null;
-  let touchStartX = 0;
-  let touchStartY = 0;
-
-  const updateLightbox = () => {
-    const item = items[currentIndex];
-
-    imageEl.src = item.src;
-    imageEl.alt = item.alt || item.caption || 'Newsletter image';
-
-    if (captionEl) {
-      captionEl.textContent = item.caption;
-      captionEl.hidden = !item.caption;
-    }
-
-    if (counterEl) {
-      counterEl.textContent = `${currentIndex + 1} / ${items.length}`;
-    }
-  };
-
-  const openLightbox = (index: number) => {
-    currentIndex = index;
-    lastFocusedElement = document.activeElement;
-    updateLightbox();
-
-    document.body.classList.add('newsletter-lightbox-open');
-    lightbox.classList.add('is-open');
-    lightbox.setAttribute('aria-hidden', 'false');
-
-    const focusTarget =
-      lightbox.querySelector<HTMLElement>('[data-lightbox-close]') ||
-      lightbox.querySelector<HTMLElement>('button') ||
-      lightbox;
-    focusTarget.focus();
-  };
-
-  const closeLightbox = () => {
-    lightbox.classList.remove('is-open');
-    lightbox.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('newsletter-lightbox-open');
-
-    if (lastFocusedElement instanceof HTMLElement) {
-      lastFocusedElement.focus();
-    }
-  };
-
-  const showPrevious = () => {
-    currentIndex = (currentIndex - 1 + items.length) % items.length;
-    updateLightbox();
-  };
-
-  const showNext = () => {
-    currentIndex = (currentIndex + 1) % items.length;
-    updateLightbox();
-  };
-
-  items.forEach((item, index) => {
-    item.img.addEventListener('click', (event) => {
-      event.preventDefault();
-      openLightbox(index);
-    });
-
-    item.img.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openLightbox(index);
-      }
-    });
-  });
-
-  closeButtons.forEach((button) => button.addEventListener('click', closeLightbox));
-  prevButtons.forEach((button) => button.addEventListener('click', showPrevious));
-  nextButtons.forEach((button) => button.addEventListener('click', showNext));
-
-  lightbox.addEventListener('click', (event) => {
-    if (event.target === lightbox) closeLightbox();
-  });
-
-  stage.addEventListener(
-    'touchstart',
-    (event) => {
-      const touch = event.changedTouches[0];
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
-    },
-    { passive: true }
-  );
-
-  stage.addEventListener(
-    'touchend',
-    (event) => {
-      const touch = event.changedTouches[0];
-      const diffX = touch.clientX - touchStartX;
-      const diffY = touch.clientY - touchStartY;
-
-      if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY)) {
-        if (diffX > 0) showPrevious();
-        else showNext();
-      }
-    },
-    { passive: true }
-  );
-
-  document.addEventListener('keydown', (event) => {
-    if (!lightbox.classList.contains('is-open')) return;
-
-    if (event.key === 'Escape') closeLightbox();
-    if (event.key === 'ArrowLeft') showPrevious();
-    if (event.key === 'ArrowRight') showNext();
-  });
-}
-
-function getImageSrc(img: HTMLImageElement) {
-  const parentLink = img.closest<HTMLAnchorElement>('a[href]');
-  const linkHref = parentLink?.getAttribute('href') || '';
-
-  if (/\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i.test(linkHref)) {
-    return parentLink?.href || '';
-  }
-
-  return img.currentSrc || img.src;
-}
-
-function getImageCaption(img: HTMLImageElement) {
-  const figcaption = img.closest('figure')?.querySelector('figcaption');
-  return (figcaption?.textContent || img.alt || '').trim();
 }
 
 function getNewsletterRichText(component: HTMLElement) {

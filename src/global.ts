@@ -1,5 +1,6 @@
 import { animatedDetailsAccordions } from '$components/accordions';
 import Dialog from '$components/dialog';
+import { initLightboxes } from '$components/lightbox';
 import { initNav } from '$components/nav';
 import { initNewsletter } from '$components/newsletter';
 import { setCurrentYear } from '$utils/current-year';
@@ -35,6 +36,7 @@ function initComponents() {
 function UIFunctions() {
   duplicateMarqueeList();
   initNewsletter();
+  initLightboxes();
   animatedDetailsAccordions();
   initNav();
   window.conditionalLoadScript('[data-slider-el="component"]', 'components/slider.js');
