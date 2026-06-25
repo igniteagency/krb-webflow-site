@@ -1,9 +1,11 @@
-// Reusable site lightbox API:
-// - Add data-lightbox-gallery to a container to make its images one gallery.
-// - Add data-lightbox-trigger="#gallery-id" to a button/link to open a gallery from elsewhere.
-// - Add data-lightbox-index="2" on a trigger to open a specific image, zero-based.
-const LIGHTBOX_GALLERY_SELECTOR = '[data-lightbox-gallery]';
+// Site lightbox trigger API:
+// - Add data-lightbox-parent to a wrapper.
+// - Add data-lightbox-target to the native Webflow lightbox/link inside that wrapper.
+// - Add data-lightbox-trigger to the button/link inside the same wrapper that should open it.
+// - Optionally set data-lightbox-trigger=".selector" to choose a specific target inside that wrapper.
+const LIGHTBOX_PARENT_SELECTOR = '[data-lightbox-parent]';
 const LIGHTBOX_TRIGGER_SELECTOR = '[data-lightbox-trigger]';
+const LIGHTBOX_TARGET_SELECTOR = '[data-lightbox-target]';
 const LIGHTBOX_TEMPLATE_SELECTOR = '[data-lightbox-template], [data-newsletter-lightbox-template]';
 const LIGHTBOX_CSS_ID = 'krb-lightbox-css';
 const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
@@ -18,7 +20,6 @@ type LightboxItem = {
 type LightboxGalleryOptions = {
   root: HTMLElement;
   imagesSelector?: string;
-  triggerSelector?: string;
   template?: HTMLElement | null;
   label?: string;
   initialisedKey?: string;
@@ -28,65 +29,14 @@ type LightboxGalleryOptions = {
   triggerImages?: boolean;
 };
 
-type LightboxController = {
-  open: (index?: number) => void;
-  close: () => void;
-};
-
-const galleryControllers = new WeakMap<HTMLElement, LightboxController>();
-
 export function initLightboxes(root: ParentNode = document) {
-  root.querySelectorAll<HTMLElement>(LIGHTBOX_GALLERY_SELECTOR).forEach((gallery) => {
-    initLightboxGallery({
-      root: gallery,
-      imagesSelector: gallery.dataset.lightboxImages || 'img',
-      triggerSelector: LIGHTBOX_TRIGGER_SELECTOR,
-      template: getTemplate(gallery),
-      label: gallery.dataset.lightboxLabel || 'Image gallery',
-      initialisedKey: 'lightboxInitialised',
-      imageIndexAttribute: 'lightboxIndex',
-      overlayAttribute: 'data-lightbox',
-      triggerImages: gallery.dataset.lightboxClickableImages !== 'false',
-    });
-  });
-
-  root.querySelectorAll<HTMLElement>(LIGHTBOX_TRIGGER_SELECTOR).forEach((trigger) => {
-    if (trigger.closest(LIGHTBOX_GALLERY_SELECTOR)) return;
-    if (trigger.dataset.lightboxBound === 'true') return;
-
-    const targetSelector = trigger.getAttribute('data-lightbox-trigger')?.trim();
-    if (!targetSelector) return;
-
-    const target = document.querySelector<HTMLElement>(targetSelector);
-    if (!target) return;
-
-    const gallery = initLightboxGallery({
-      root: target,
-      imagesSelector: trigger.dataset.lightboxImages || target.dataset.lightboxImages || 'img',
-      triggerSelector: '',
-      template: getTemplate(target),
-      label: target.dataset.lightboxLabel || trigger.getAttribute('aria-label') || 'Image gallery',
-      initialisedKey: 'lightboxInitialised',
-      imageIndexAttribute: 'lightboxIndex',
-      overlayAttribute: 'data-lightbox',
-      triggerImages: target.dataset.lightboxClickableImages !== 'false',
-    });
-
-    if (!gallery) return;
-
-    trigger.dataset.lightboxBound = 'true';
-    trigger.addEventListener('click', (event) => {
-      event.preventDefault();
-      gallery.open(getTriggerIndex(trigger));
-    });
-  });
+  getLightboxParents(root).forEach(bindLightboxParent);
 }
 
 export function initLightboxGallery(options: LightboxGalleryOptions) {
   const {
     root,
     imagesSelector = 'img',
-    triggerSelector = LIGHTBOX_TRIGGER_SELECTOR,
     template = getTemplate(root),
     label = 'Image gallery',
     initialisedKey = 'lightboxInitialised',
@@ -96,7 +46,7 @@ export function initLightboxGallery(options: LightboxGalleryOptions) {
     triggerImages = true,
   } = options;
 
-  if (root.dataset[initialisedKey] === 'true') return galleryControllers.get(root);
+  if (root.dataset[initialisedKey] === 'true') return;
 
   const images = getUniqueImages(root, imagesSelector);
   if (!images.length) return;
@@ -136,23 +86,48 @@ export function initLightboxGallery(options: LightboxGalleryOptions) {
   }
 
   document.body.appendChild(lightbox);
-  const controller = bindLightbox(lightbox, items, { bodyOpenClass, triggerImages });
+  bindRichTextGallery(lightbox, items, { bodyOpenClass, triggerImages });
+  root.dataset[initialisedKey] = 'true';
+}
 
-  if (triggerSelector) {
-    root.querySelectorAll<HTMLElement>(triggerSelector).forEach((trigger) => {
-      if (trigger.dataset.lightboxBound === 'true') return;
+function getLightboxParents(root: ParentNode) {
+  const parents = Array.from(root.querySelectorAll<HTMLElement>(LIGHTBOX_PARENT_SELECTOR));
 
-      trigger.dataset.lightboxBound = 'true';
-      trigger.addEventListener('click', (event) => {
-        event.preventDefault();
-        controller.open(getTriggerIndex(trigger));
-      });
-    });
+  if (root instanceof HTMLElement && root.matches(LIGHTBOX_PARENT_SELECTOR)) {
+    parents.unshift(root);
   }
 
-  root.dataset[initialisedKey] = 'true';
-  galleryControllers.set(root, controller);
-  return controller;
+  return parents;
+}
+
+function bindLightboxParent(parent: HTMLElement) {
+  parent.querySelectorAll<HTMLElement>(LIGHTBOX_TRIGGER_SELECTOR).forEach((trigger) => {
+    if (trigger.dataset.lightboxBound === 'true') return;
+
+    const target = getScopedTarget(parent, trigger);
+    if (!target || target === trigger) return;
+
+    trigger.dataset.lightboxBound = 'true';
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      target.click();
+    });
+  });
+}
+
+function getScopedTarget(parent: HTMLElement, trigger: HTMLElement) {
+  const targetSelector = trigger.getAttribute('data-lightbox-trigger')?.trim();
+
+  if (targetSelector) {
+    try {
+      const selectedTarget = parent.querySelector<HTMLElement>(targetSelector);
+      if (selectedTarget) return selectedTarget;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  return parent.querySelector<HTMLElement>(LIGHTBOX_TARGET_SELECTOR);
 }
 
 function getUniqueImages(root: ParentNode, imagesSelector: string) {
@@ -171,7 +146,6 @@ function addLightboxCSS() {
   const style = document.createElement('style');
   style.id = LIGHTBOX_CSS_ID;
   style.textContent = `
-    [data-lightbox-gallery] img[data-lightbox-index],
     .newsletter_rich-text img[data-newsletter-lightbox-index] {
       cursor: zoom-in;
     }
@@ -233,7 +207,7 @@ function createFallbackLightbox() {
   return fallback;
 }
 
-function bindLightbox(
+function bindRichTextGallery(
   lightbox: HTMLElement,
   items: LightboxItem[],
   options: { bodyOpenClass: string; triggerImages: boolean }
@@ -371,12 +345,6 @@ function bindLightbox(
   });
 
   return { open, close };
-}
-
-function getTriggerIndex(trigger: HTMLElement) {
-  const rawIndex = trigger.getAttribute('data-lightbox-index');
-  const index = Number(rawIndex || 0);
-  return Number.isFinite(index) ? index : 0;
 }
 
 function normaliseIndex(index: number, itemCount: number) {
