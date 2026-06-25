@@ -58,6 +58,11 @@ class Slider {
 
       this.swiper = new Swiper(swiperEl, {
         loop: false,
+        rewind: true,
+        autoplay: {
+          delay: 3000,
+          disableOnInteraction: false,
+        },
         effect: 'fade',
         fadeEffect: {
           crossFade: true,
