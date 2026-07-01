@@ -73,7 +73,6 @@ export function initLightboxGallery(options: LightboxGalleryOptions) {
   const lightbox = template ? (template.cloneNode(true) as HTMLElement) : createFallbackLightbox();
   if (!(lightbox instanceof HTMLElement)) return;
 
-  normaliseTemplateControls(lightbox);
   lightbox.removeAttribute('data-lightbox-template');
   lightbox.removeAttribute('data-newsletter-lightbox-template');
   lightbox.setAttribute(overlayAttribute, '');
@@ -186,20 +185,6 @@ function addLightboxCSS() {
     }
   `;
   document.head.appendChild(style);
-}
-
-function normaliseTemplateControls(lightbox: HTMLElement) {
-  lightbox.querySelectorAll('buttton').forEach((element) => {
-    const button = document.createElement('button');
-
-    Array.from(element.attributes).forEach((attribute) => {
-      button.setAttribute(attribute.name, attribute.value);
-    });
-
-    button.type = button.getAttribute('type') || 'button';
-    button.append(...Array.from(element.childNodes));
-    element.replaceWith(button);
-  });
 }
 
 function createFallbackLightbox() {
