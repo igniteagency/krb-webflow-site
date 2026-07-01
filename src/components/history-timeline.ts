@@ -28,7 +28,9 @@ const IMAGE_DURATION_ATTRIBUTE = 'historyTimelineImageDuration';
 
 type SwiperInstance = {
   activeIndex: number;
+  realIndex: number;
   slideTo: (index: number, speed?: number) => void;
+  slideToLoop?: (index: number, speed?: number) => void;
   on: (eventName: string, callback: () => void) => void;
   update: () => void;
 };
@@ -78,6 +80,7 @@ class HistoryTimeline {
 
     this.component.dataset[INITIALISED_ATTRIBUTE] = 'true';
     this.buildYearNavigation(navWrapperEl);
+    this.initNavigationEvents(navWrapperEl);
     this.initLightboxGalleries();
     this.initImageStates();
     this.initSwipers(mainSwiperEl, navSwiperEl);
@@ -117,15 +120,34 @@ class HistoryTimeline {
     navSlide.setAttribute('aria-label', `Go to ${year}`);
     setNavSlideYear(navSlide, year);
 
-    const activate = () => this.mainSwiper?.slideTo(index, this.speed);
-    navSlide.addEventListener('click', activate);
-    navSlide.addEventListener('keydown', (event) => {
+    return navSlide;
+  }
+
+  private initNavigationEvents(navWrapperEl: HTMLElement) {
+    const activate = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const navSlide = target.closest<HTMLElement>('.swiper-slide[data-history-index]');
+      if (!navSlide || !navWrapperEl.contains(navSlide)) return;
+
+      const index = Number(navSlide.dataset.historyIndex);
+      if (!Number.isInteger(index)) return;
+
+      if (this.mainSwiper?.slideToLoop) {
+        this.mainSwiper.slideToLoop(index, this.speed);
+        return;
+      }
+
+      this.mainSwiper?.slideTo(index, this.speed);
+    };
+
+    navWrapperEl.addEventListener('click', activate);
+    navWrapperEl.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
-      activate();
+      activate(event);
     });
-
-    return navSlide;
   }
 
   private initLightboxGalleries() {
@@ -154,11 +176,12 @@ class HistoryTimeline {
     const navNextButtonEl = this.section.querySelector<HTMLElement>(NAV_NEXT_BUTTON_SELECTOR);
 
     this.navSwiper = new Swiper(navSwiperEl, {
+      loop: true,
+      loopAdditionalSlides: this.slides.length,
       slidesPerView: 'auto',
       centeredSlides: false,
       slideToClickedSlide: true,
       spaceBetween: 0,
-      slidesOffsetAfter: navSwiperEl.clientWidth,
       speed: this.speed,
       watchSlidesProgress: true,
       slideActiveClass: ACTIVE_CLASS,
@@ -170,7 +193,8 @@ class HistoryTimeline {
     }) as SwiperInstance;
 
     this.mainSwiper = new Swiper(mainSwiperEl, {
-      loop: false,
+      loop: true,
+      loopAdditionalSlides: this.slides.length,
       speed: this.speed,
       spaceBetween: 0,
       slidesPerView: 1,
@@ -190,20 +214,25 @@ class HistoryTimeline {
       },
     }) as SwiperInstance;
 
-    this.mainSwiper.on('slideChange', () => this.syncToSlide(this.mainSwiper?.activeIndex || 0));
+    this.mainSwiper.on('slideChange', () => this.syncToSlide(this.mainSwiper?.realIndex || 0));
   }
 
   private syncToSlide(index: number) {
     this.updateNavState(index);
-    this.navSwiper?.slideTo(index, this.speed);
+    if (this.navSwiper?.slideToLoop) {
+      this.navSwiper.slideToLoop(index, this.speed);
+    } else {
+      this.navSwiper?.slideTo(index, this.speed);
+    }
+
     this.resetImageRotation(index);
   }
 
   private updateNavState(activeIndex: number) {
     this.section
       .querySelectorAll<HTMLElement>(`${NAV_WRAPPER_SELECTOR} > .swiper-slide`)
-      .forEach((slide, index) => {
-        const isActive = index === activeIndex;
+      .forEach((slide) => {
+        const isActive = Number(slide.dataset.historyIndex) === activeIndex;
         slide.classList.toggle(ACTIVE_CLASS, isActive);
         slide.setAttribute('aria-current', isActive ? 'true' : 'false');
       });
