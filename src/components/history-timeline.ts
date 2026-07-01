@@ -155,9 +155,10 @@ class HistoryTimeline {
 
     this.navSwiper = new Swiper(navSwiperEl, {
       slidesPerView: 'auto',
-      centeredSlides: true,
+      centeredSlides: false,
       slideToClickedSlide: true,
       spaceBetween: 0,
+      slidesOffsetAfter: navSwiperEl.clientWidth,
       speed: this.speed,
       watchSlidesProgress: true,
       slideActiveClass: ACTIVE_CLASS,
@@ -171,10 +172,6 @@ class HistoryTimeline {
     this.mainSwiper = new Swiper(mainSwiperEl, {
       loop: false,
       speed: this.speed,
-      effect: 'fade',
-      fadeEffect: {
-        crossFade: true,
-      },
       spaceBetween: 0,
       slidesPerView: 1,
       navigation:
