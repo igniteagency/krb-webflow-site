@@ -40,6 +40,10 @@ function UIFunctions() {
   animatedDetailsAccordions();
   initNav();
   window.conditionalLoadScript('[data-slider-el="component"]', 'components/slider.js');
+  window.conditionalLoadScript(
+    '[data-history-timeline="component"], .history-timeline_component',
+    'components/history-timeline.js'
+  );
 }
 
 function webflowOverrides() {
