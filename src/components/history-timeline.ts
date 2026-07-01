@@ -88,7 +88,7 @@ class HistoryTimeline {
     this.initLightboxGalleries();
     this.initImageStates();
     this.initSwipers(mainSwiperEl, navSwiperEl);
-    this.navDisplayIndex = this.getMiddleNavDisplayIndex(0);
+    this.navDisplayIndex = 0;
     this.syncToSlide(0, 0);
   }
 
@@ -243,12 +243,19 @@ class HistoryTimeline {
       this.navResetTimer = null;
     }
 
+    const currentLogicalIndex = this.getLogicalNavIndex(this.navDisplayIndex);
+    const crossesLoopBoundary = Math.abs(index - currentLogicalIndex) > this.slides.length / 2;
+    if (crossesLoopBoundary) {
+      this.navDisplayIndex = this.getMiddleNavDisplayIndex(currentLogicalIndex);
+      this.navSwiper.slideTo(this.navDisplayIndex, 0, false);
+    }
+
     const targetIndex = this.getClosestNavDisplayIndex(index);
     this.navDisplayIndex = targetIndex;
     this.navSwiper.slideTo(targetIndex, speed);
 
     const middleIndex = this.getMiddleNavDisplayIndex(index);
-    if (targetIndex === middleIndex) return;
+    if (!crossesLoopBoundary || targetIndex === middleIndex) return;
 
     this.navResetTimer = window.setTimeout(
       () => {
@@ -277,6 +284,12 @@ class HistoryTimeline {
 
   private getMiddleNavDisplayIndex(index: number) {
     return NAV_LOOP_MIDDLE_COPY_INDEX * this.slides.length + index;
+  }
+
+  private getLogicalNavIndex(displayIndex: number) {
+    if (!this.slides.length) return 0;
+
+    return ((displayIndex % this.slides.length) + this.slides.length) % this.slides.length;
   }
 
   private updateNavState(activeIndex: number) {
