@@ -250,11 +250,14 @@ class HistoryTimeline {
     const middleIndex = this.getMiddleNavDisplayIndex(index);
     if (targetIndex === middleIndex) return;
 
-    this.navResetTimer = window.setTimeout(() => {
-      this.navDisplayIndex = middleIndex;
-      this.navSwiper?.slideTo(middleIndex, 0, false);
-      this.navResetTimer = null;
-    }, Math.max(speed, 0) + 50);
+    this.navResetTimer = window.setTimeout(
+      () => {
+        this.navDisplayIndex = middleIndex;
+        this.navSwiper?.slideTo(middleIndex, 0, false);
+        this.navResetTimer = null;
+      },
+      Math.max(speed, 0) + 50
+    );
   }
 
   private getClosestNavDisplayIndex(index: number) {
@@ -265,7 +268,8 @@ class HistoryTimeline {
     );
 
     return candidates.reduce((closestIndex, candidateIndex) =>
-      Math.abs(candidateIndex - this.navDisplayIndex) < Math.abs(closestIndex - this.navDisplayIndex)
+      Math.abs(candidateIndex - this.navDisplayIndex) <
+      Math.abs(closestIndex - this.navDisplayIndex)
         ? candidateIndex
         : closestIndex
     );
@@ -348,6 +352,8 @@ function hasHistoryTimeline() {
   return Boolean(document.querySelector(COMPONENT_SELECTOR));
 }
 
+let swiperLoadPromise: Promise<void> | null = null;
+
 function isSwiperReady() {
   return typeof Swiper !== 'undefined';
 }
@@ -360,26 +366,45 @@ function initHistoryTimeline() {
     .forEach((component) => new HistoryTimeline(component).init());
 }
 
+function loadExternalScript(url: string, scriptName?: string) {
+  if (isSwiperReady()) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.defer = true;
+    script.onload = () => {
+      scriptName &&
+        document.dispatchEvent(
+          new CustomEvent(`scriptLoaded:${scriptName}`, {
+            detail: { url, name: scriptName, scriptName },
+          })
+        );
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+    document.head.appendChild(script);
+  });
+}
+
 function loadSwiper() {
   if (isSwiperReady()) {
     initHistoryTimeline();
     return;
   }
 
-  if (!window.loadScript) {
-    console.error('window.loadScript is required to load Swiper. Make sure entry.js loads first.');
-    return;
-  }
+  swiperLoadPromise =
+    swiperLoadPromise ||
+    (window.loadScript
+      ? window.loadScript(SWIPER_JS_URL, {
+          placement: 'head',
+          scriptName: 'swiper',
+        })
+      : loadExternalScript(SWIPER_JS_URL, 'swiper'));
 
-  window
-    .loadScript(SWIPER_JS_URL, {
-      placement: 'head',
-      scriptName: 'swiper',
-    })
-    .then(initHistoryTimeline)
-    .catch((error) => {
-      console.error('Failed to load Swiper JS for history timeline', error);
-    });
+  swiperLoadPromise.then(initHistoryTimeline).catch((error) => {
+    console.error('Failed to load Swiper JS for history timeline', error);
+  });
 }
 
 document.addEventListener('scriptLoaded:swiper', initHistoryTimeline);
