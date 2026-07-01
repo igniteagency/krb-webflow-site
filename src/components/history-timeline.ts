@@ -177,7 +177,6 @@ class HistoryTimeline {
 
     this.navSwiper = new Swiper(navSwiperEl, {
       loop: true,
-      loopAdditionalSlides: this.slides.length,
       slidesPerView: 'auto',
       centeredSlides: false,
       slideToClickedSlide: true,
@@ -194,7 +193,6 @@ class HistoryTimeline {
 
     this.mainSwiper = new Swiper(mainSwiperEl, {
       loop: true,
-      loopAdditionalSlides: this.slides.length,
       speed: this.speed,
       spaceBetween: 0,
       slidesPerView: 1,
