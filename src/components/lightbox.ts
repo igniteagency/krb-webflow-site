@@ -73,6 +73,7 @@ export function initLightboxGallery(options: LightboxGalleryOptions) {
   const lightbox = template ? (template.cloneNode(true) as HTMLElement) : createFallbackLightbox();
   if (!(lightbox instanceof HTMLElement)) return;
 
+  normaliseTemplateControls(lightbox);
   lightbox.removeAttribute('data-lightbox-template');
   lightbox.removeAttribute('data-newsletter-lightbox-template');
   lightbox.setAttribute(overlayAttribute, '');
@@ -187,6 +188,20 @@ function addLightboxCSS() {
   document.head.appendChild(style);
 }
 
+function normaliseTemplateControls(lightbox: HTMLElement) {
+  lightbox.querySelectorAll('buttton').forEach((element) => {
+    const button = document.createElement('button');
+
+    Array.from(element.attributes).forEach((attribute) => {
+      button.setAttribute(attribute.name, attribute.value);
+    });
+
+    button.type = button.getAttribute('type') || 'button';
+    button.append(...Array.from(element.childNodes));
+    element.replaceWith(button);
+  });
+}
+
 function createFallbackLightbox() {
   const fallback = document.createElement('div');
   fallback.className = 'newsletter-lightbox';
@@ -216,7 +231,7 @@ function bindRichTextGallery(
     lightbox.querySelector<HTMLImageElement>('[data-lightbox-image]') ||
     lightbox.querySelector<HTMLImageElement>('img');
   const captionEl = lightbox.querySelector<HTMLElement>('[data-lightbox-caption]');
-  const counterEl = lightbox.querySelector<HTMLElement>('[data-lightbox-counter]');
+  const counterEls = Array.from(lightbox.querySelectorAll<HTMLElement>('[data-lightbox-counter]'));
   const closeButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-close]');
   const prevButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-prev]');
   const nextButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-next]');
@@ -246,9 +261,9 @@ function bindRichTextGallery(
       captionEl.hidden = !item.caption;
     }
 
-    if (counterEl) {
+    counterEls.forEach((counterEl) => {
       counterEl.textContent = `${currentIndex + 1} / ${items.length}`;
-    }
+    });
   };
 
   const open = (index = 0) => {
