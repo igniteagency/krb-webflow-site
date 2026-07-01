@@ -18,6 +18,8 @@ const IMAGE_SELECTOR = '.history-timeline_slide-image';
 const SWIPER_JS_URL = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
 const DEFAULT_SWIPER_SPEED_IN_MS = 700;
 const DEFAULT_IMAGE_ROTATION_DELAY_IN_MS = 3500;
+const NAV_LOOP_COPY_COUNT = 3;
+const NAV_LOOP_MIDDLE_COPY_INDEX = 1;
 const INITIALISED_ATTRIBUTE = 'historyTimelineInitialised';
 const ACTIVE_CLASS = 'is-active';
 const PREVIOUS_CLASS = 'is-previous';
@@ -29,7 +31,7 @@ const IMAGE_DURATION_ATTRIBUTE = 'historyTimelineImageDuration';
 type SwiperInstance = {
   activeIndex: number;
   realIndex: number;
-  slideTo: (index: number, speed?: number) => void;
+  slideTo: (index: number, speed?: number, runCallbacks?: boolean) => void;
   slideToLoop?: (index: number, speed?: number) => void;
   on: (eventName: string, callback: () => void) => void;
   update: () => void;
@@ -51,6 +53,8 @@ class HistoryTimeline {
   private mainSwiper: SwiperInstance | null = null;
   private navSwiper: SwiperInstance | null = null;
   private imageRotationTimer: number | null = null;
+  private navResetTimer: number | null = null;
+  private navDisplayIndex = 0;
 
   constructor(component: HTMLElement) {
     this.component = component;
@@ -84,7 +88,8 @@ class HistoryTimeline {
     this.initLightboxGalleries();
     this.initImageStates();
     this.initSwipers(mainSwiperEl, navSwiperEl);
-    this.syncToSlide(0);
+    this.navDisplayIndex = this.getMiddleNavDisplayIndex(0);
+    this.syncToSlide(0, 0);
   }
 
   private getSlides() {
@@ -101,12 +106,19 @@ class HistoryTimeline {
   private buildYearNavigation(navWrapperEl: HTMLElement) {
     const template = navWrapperEl.querySelector<HTMLElement>(NAV_TEMPLATE_SELECTOR);
 
-    navWrapperEl.replaceChildren(
-      ...this.slides.map((slide, index) => this.createNavSlide(slide.year, index, template))
+    const navSlides = Array.from({ length: NAV_LOOP_COPY_COUNT }).flatMap((_, copyIndex) =>
+      this.slides.map((slide, index) => this.createNavSlide(slide.year, index, template, copyIndex))
     );
+
+    navWrapperEl.replaceChildren(...navSlides);
   }
 
-  private createNavSlide(year: string, index: number, template: HTMLElement | null) {
+  private createNavSlide(
+    year: string,
+    index: number,
+    template: HTMLElement | null,
+    copyIndex: number
+  ) {
     const navSlide = template
       ? (template.cloneNode(true) as HTMLElement)
       : document.createElement('button');
@@ -115,6 +127,7 @@ class HistoryTimeline {
     navSlide.removeAttribute('data-history-timeline');
     navSlide.dataset.historyYear = year;
     navSlide.dataset.historyIndex = String(index);
+    navSlide.dataset.historyCopy = String(copyIndex);
     navSlide.setAttribute('role', 'button');
     navSlide.setAttribute('tabindex', '0');
     navSlide.setAttribute('aria-label', `Go to ${year}`);
@@ -176,10 +189,10 @@ class HistoryTimeline {
     const navNextButtonEl = this.section.querySelector<HTMLElement>(NAV_NEXT_BUTTON_SELECTOR);
 
     this.navSwiper = new Swiper(navSwiperEl, {
-      loop: true,
+      loop: false,
       slidesPerView: 'auto',
       centeredSlides: false,
-      slideToClickedSlide: true,
+      slideToClickedSlide: false,
       spaceBetween: 0,
       speed: this.speed,
       watchSlidesProgress: true,
@@ -215,15 +228,51 @@ class HistoryTimeline {
     this.mainSwiper.on('slideChange', () => this.syncToSlide(this.mainSwiper?.realIndex || 0));
   }
 
-  private syncToSlide(index: number) {
+  private syncToSlide(index: number, speed = this.speed) {
     this.updateNavState(index);
-    if (this.navSwiper?.slideToLoop) {
-      this.navSwiper.slideToLoop(index, this.speed);
-    } else {
-      this.navSwiper?.slideTo(index, this.speed);
-    }
+    this.syncNavRail(index, speed);
 
     this.resetImageRotation(index);
+  }
+
+  private syncNavRail(index: number, speed: number) {
+    if (!this.navSwiper || !this.slides.length) return;
+
+    if (this.navResetTimer) {
+      window.clearTimeout(this.navResetTimer);
+      this.navResetTimer = null;
+    }
+
+    const targetIndex = this.getClosestNavDisplayIndex(index);
+    this.navDisplayIndex = targetIndex;
+    this.navSwiper.slideTo(targetIndex, speed);
+
+    const middleIndex = this.getMiddleNavDisplayIndex(index);
+    if (targetIndex === middleIndex) return;
+
+    this.navResetTimer = window.setTimeout(() => {
+      this.navDisplayIndex = middleIndex;
+      this.navSwiper?.slideTo(middleIndex, 0, false);
+      this.navResetTimer = null;
+    }, Math.max(speed, 0) + 50);
+  }
+
+  private getClosestNavDisplayIndex(index: number) {
+    const slideCount = this.slides.length;
+    const candidates = Array.from(
+      { length: NAV_LOOP_COPY_COUNT },
+      (_, copyIndex) => copyIndex * slideCount + index
+    );
+
+    return candidates.reduce((closestIndex, candidateIndex) =>
+      Math.abs(candidateIndex - this.navDisplayIndex) < Math.abs(closestIndex - this.navDisplayIndex)
+        ? candidateIndex
+        : closestIndex
+    );
+  }
+
+  private getMiddleNavDisplayIndex(index: number) {
+    return NAV_LOOP_MIDDLE_COPY_INDEX * this.slides.length + index;
   }
 
   private updateNavState(activeIndex: number) {
