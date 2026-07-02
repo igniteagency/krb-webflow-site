@@ -7,6 +7,9 @@ const LIGHTBOX_PARENT_SELECTOR = '[data-lightbox-parent]';
 const LIGHTBOX_TRIGGER_SELECTOR = '[data-lightbox-trigger]';
 const LIGHTBOX_TARGET_SELECTOR = '[data-lightbox-target]';
 const LIGHTBOX_TEMPLATE_SELECTOR = '[data-lightbox-template], [data-newsletter-lightbox-template]';
+const LIGHTBOX_GALLERY_SELECTOR = '[data-lightbox-gallery]';
+const HISTORY_TIMELINE_SELECTOR =
+  '[data-history-timeline="component"], .history-timeline_component';
 const LIGHTBOX_CSS_ID = 'krb-lightbox-css';
 const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i;
 
@@ -31,6 +34,19 @@ type LightboxGalleryOptions = {
 
 export function initLightboxes(root: ParentNode = document) {
   getLightboxParents(root).forEach(bindLightboxParent);
+}
+
+export function initLightboxGalleries(root: ParentNode = document) {
+  getLightboxGalleries(root).forEach((gallery) => {
+    initLightboxGallery({
+      root: gallery,
+      template: getTemplate(document),
+      label:
+        gallery.getAttribute('aria-label') ||
+        gallery.getAttribute('data-lightbox-gallery') ||
+        'Image gallery',
+    });
+  });
 }
 
 export function initLightboxGallery(options: LightboxGalleryOptions) {
@@ -98,6 +114,16 @@ function getLightboxParents(root: ParentNode) {
   }
 
   return parents;
+}
+
+function getLightboxGalleries(root: ParentNode) {
+  const galleries = Array.from(root.querySelectorAll<HTMLElement>(LIGHTBOX_GALLERY_SELECTOR));
+
+  if (root instanceof HTMLElement && root.matches(LIGHTBOX_GALLERY_SELECTOR)) {
+    galleries.unshift(root);
+  }
+
+  return galleries.filter((gallery) => !gallery.closest(HISTORY_TIMELINE_SELECTOR));
 }
 
 function bindLightboxParent(parent: HTMLElement) {
