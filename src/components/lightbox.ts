@@ -217,6 +217,9 @@ function bindRichTextGallery(
     lightbox.querySelector<HTMLImageElement>('img');
   const captionEl = lightbox.querySelector<HTMLElement>('[data-lightbox-caption]');
   const counterEls = Array.from(lightbox.querySelectorAll<HTMLElement>('[data-lightbox-counter]'));
+  const paginationEls = Array.from(
+    lightbox.querySelectorAll<HTMLElement>('[data-lightbox-counter], [data-lightbox-pagination]')
+  );
   const closeButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-close]');
   const prevButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-prev]');
   const nextButtons = lightbox.querySelectorAll<HTMLElement>('[data-lightbox-next]');
@@ -228,6 +231,9 @@ function bindRichTextGallery(
   if (!imageEl) {
     return { open: () => undefined, close: () => undefined };
   }
+
+  const hasMultipleItems = items.length > 1;
+  setElementsHidden([...prevButtons, ...nextButtons, ...paginationEls], !hasMultipleItems);
 
   let currentIndex = 0;
   let lastFocusedElement: Element | null = null;
@@ -278,11 +284,13 @@ function bindRichTextGallery(
   };
 
   const showPrevious = () => {
+    if (!hasMultipleItems) return;
     currentIndex = normaliseIndex(currentIndex - 1, items.length);
     updateLightbox();
   };
 
   const showNext = () => {
+    if (!hasMultipleItems) return;
     currentIndex = normaliseIndex(currentIndex + 1, items.length);
     updateLightbox();
   };
@@ -350,6 +358,19 @@ function bindRichTextGallery(
 function normaliseIndex(index: number, itemCount: number) {
   if (!itemCount) return 0;
   return ((index % itemCount) + itemCount) % itemCount;
+}
+
+function setElementsHidden(elements: HTMLElement[], hidden: boolean) {
+  elements.forEach((element) => {
+    element.hidden = hidden;
+    element.setAttribute('aria-hidden', String(hidden));
+
+    if (hidden) {
+      element.style.setProperty('display', 'none', 'important');
+    } else {
+      element.style.removeProperty('display');
+    }
+  });
 }
 
 function getImageSrc(img: HTMLImageElement) {
