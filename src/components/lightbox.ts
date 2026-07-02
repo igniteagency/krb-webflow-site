@@ -342,7 +342,17 @@ function bindRichTextGallery(
   nextButtons.forEach((button) => button.addEventListener('click', showNext));
 
   lightbox.addEventListener('click', (event) => {
-    if (event.target === lightbox) close();
+    const target = event.target;
+
+    if (!(target instanceof Element)) return;
+
+    const interactiveTarget = target.closest(
+      '[data-lightbox-close], [data-lightbox-prev], [data-lightbox-next], [data-lightbox-image], [data-lightbox-caption], [data-lightbox-counter], [data-lightbox-pagination], button, a, img, video, iframe'
+    );
+
+    if (!interactiveTarget && lightbox.contains(target)) {
+      close();
+    }
   });
 
   stage.addEventListener(
