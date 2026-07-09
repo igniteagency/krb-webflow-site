@@ -9,6 +9,7 @@ import { disableWebflowAnchorSmoothScroll } from '$utils/disable-webflow-scroll'
 import handleExternalLinks from '$utils/external-link';
 import addMainElementId from '$utils/main-element-id';
 import { duplicateMarqueeList } from '$utils/marquee-list';
+import { initRevealFallback } from '$utils/reveal-fallback';
 
 window.Webflow = window.Webflow || [];
 window.Webflow?.push(() => {
@@ -38,6 +39,7 @@ function UIFunctions() {
   initNewsletter();
   initLightboxes();
   initLightboxGalleries();
+  initRevealFallback();
   animatedDetailsAccordions();
   initNav();
   window.conditionalLoadScript('[data-slider-el="component"]', 'components/slider.js');
