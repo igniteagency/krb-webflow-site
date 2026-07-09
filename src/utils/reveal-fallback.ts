@@ -2,6 +2,7 @@ const REVEAL_SELECTOR = '[data-reveal], [data-reveal-stagger]';
 const REVEAL_STAGGER_CHILDREN_SELECTOR = ":scope > *:not(.display-contents):not([class*='spacer'])";
 const REVEALED_CLASS = 'is-revealed';
 const FALLBACK_CLASS = 'reveal-fallback';
+const LOG_PREFIX = '[KRB reveal fallback]';
 
 function supportsNativeRevealAnimations() {
   return CSS.supports('animation-trigger: --reveal-trigger play-once');
@@ -34,14 +35,34 @@ export function initRevealFallback() {
 
   revealElements.forEach(setStaggerIndexes);
 
-  if (supportsNativeRevealAnimations() || prefersReducedMotion()) {
+  const nativeRevealSupported = supportsNativeRevealAnimations();
+  const reducedMotion = prefersReducedMotion();
+
+  if (nativeRevealSupported) {
+    console.info(`${LOG_PREFIX} Native CSS animation-trigger supported; JS fallback not needed.`, {
+      revealElementCount: revealElements.length,
+    });
     revealElements.forEach(reveal);
     return;
   }
 
+  if (reducedMotion) {
+    console.info(`${LOG_PREFIX} Reduced motion requested; revealing elements without animation.`, {
+      revealElementCount: revealElements.length,
+    });
+    revealElements.forEach(reveal);
+    return;
+  }
+
+  console.info(`${LOG_PREFIX} Native CSS animation-trigger unsupported; JS fallback active.`, {
+    revealElementCount: revealElements.length,
+  });
   document.documentElement.classList.add(FALLBACK_CLASS);
 
   if (!('IntersectionObserver' in window)) {
+    console.info(
+      `${LOG_PREFIX} IntersectionObserver unsupported; revealing all elements immediately.`
+    );
     revealElements.forEach(reveal);
     return;
   }
