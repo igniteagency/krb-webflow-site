@@ -9,6 +9,7 @@ import { disableWebflowAnchorSmoothScroll } from '$utils/disable-webflow-scroll'
 import handleExternalLinks from '$utils/external-link';
 import addMainElementId from '$utils/main-element-id';
 import { duplicateMarqueeList } from '$utils/marquee-list';
+import { setSearchResultTextFromQuery } from '$utils/search-query-text';
 
 window.Webflow = window.Webflow || [];
 window.Webflow?.push(() => {
@@ -21,6 +22,7 @@ window.Webflow?.push(() => {
   setCurrentYear();
   addMainElementId();
   handleExternalLinks();
+  setSearchResultTextFromQuery();
 
   initComponents();
   UIFunctions();
