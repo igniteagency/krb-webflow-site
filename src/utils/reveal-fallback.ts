@@ -3,6 +3,7 @@ const REVEAL_STAGGER_CHILDREN_SELECTOR = ":scope > *:not(.display-contents):not(
 const REVEALED_CLASS = 'is-revealed';
 const FALLBACK_CLASS = 'reveal-fallback';
 const LOG_PREFIX = '[KRB reveal fallback]';
+const TRIGGER_VIEWPORT_RATIO = 0.5;
 
 function supportsNativeRevealAnimations() {
   return CSS.supports('animation-trigger: --reveal-trigger play-once');
@@ -24,8 +25,51 @@ function setStaggerIndexes(element: HTMLElement) {
     });
 }
 
-function reveal(element: HTMLElement) {
+function reveal(element: HTMLElement, shouldLog = false) {
+  if (element.classList.contains(REVEALED_CLASS)) return false;
+
   element.classList.add(REVEALED_CLASS);
+
+  if (shouldLog) {
+    console.info(`${LOG_PREFIX} Revealed element.`, { element });
+  }
+
+  return true;
+}
+
+function initViewportFallback(revealElements: NodeListOf<HTMLElement>) {
+  const unrevealedElements = new Set(revealElements);
+  let isTicking = false;
+
+  const checkRevealElements = () => {
+    const triggerPoint = window.innerHeight * TRIGGER_VIEWPORT_RATIO;
+
+    unrevealedElements.forEach((element) => {
+      if (element.getBoundingClientRect().top > triggerPoint) return;
+
+      reveal(element, true);
+      unrevealedElements.delete(element);
+    });
+
+    if (!unrevealedElements.size) {
+      window.removeEventListener('scroll', requestRevealCheck);
+      window.removeEventListener('resize', requestRevealCheck);
+    }
+  };
+
+  const requestRevealCheck = () => {
+    if (isTicking) return;
+
+    isTicking = true;
+    window.requestAnimationFrame(() => {
+      isTicking = false;
+      checkRevealElements();
+    });
+  };
+
+  window.addEventListener('scroll', requestRevealCheck, { passive: true });
+  window.addEventListener('resize', requestRevealCheck);
+  checkRevealElements();
 }
 
 export function initRevealFallback() {
@@ -42,7 +86,7 @@ export function initRevealFallback() {
     console.info(`${LOG_PREFIX} Native CSS animation-trigger supported; JS fallback not needed.`, {
       revealElementCount: revealElements.length,
     });
-    revealElements.forEach(reveal);
+    revealElements.forEach((element) => reveal(element));
     return;
   }
 
@@ -50,37 +94,17 @@ export function initRevealFallback() {
     console.info(`${LOG_PREFIX} Reduced motion requested; revealing elements without animation.`, {
       revealElementCount: revealElements.length,
     });
-    revealElements.forEach(reveal);
+    revealElements.forEach((element) => reveal(element));
     return;
   }
 
   console.info(`${LOG_PREFIX} Native CSS animation-trigger unsupported; JS fallback active.`, {
     revealElementCount: revealElements.length,
   });
+  console.info(`${LOG_PREFIX} Using viewport scroll fallback.`, {
+    triggerViewportRatio: TRIGGER_VIEWPORT_RATIO,
+  });
+
   document.documentElement.classList.add(FALLBACK_CLASS);
-
-  if (!('IntersectionObserver' in window)) {
-    console.info(
-      `${LOG_PREFIX} IntersectionObserver unsupported; revealing all elements immediately.`
-    );
-    revealElements.forEach(reveal);
-    return;
-  }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-
-        reveal(entry.target as HTMLElement);
-        observer.unobserve(entry.target);
-      });
-    },
-    {
-      rootMargin: '0px 0px -50% 0px',
-      threshold: 0,
-    }
-  );
-
-  revealElements.forEach((element) => observer.observe(element));
+  initViewportFallback(revealElements);
 }
