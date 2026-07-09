@@ -4,6 +4,7 @@ const REVEALED_CLASS = 'is-revealed';
 const FALLBACK_CLASS = 'reveal-fallback';
 const LOG_PREFIX = '[KRB reveal fallback]';
 const TRIGGER_VIEWPORT_RATIO = 0.5;
+const INITIAL_REVEAL_CHECK_DELAYS = [0, 100, 500, 1000];
 const DEFAULT_REVEAL_DURATION = 800;
 const DEFAULT_REVEAL_EASE = 'cubic-bezier(0.19, 1, 0.22, 1)';
 const DEFAULT_REVEAL_STAGGER = 80;
@@ -163,7 +164,12 @@ function initViewportFallback(revealElements: NodeListOf<HTMLElement>) {
 
   window.addEventListener('scroll', requestRevealCheck, { passive: true });
   window.addEventListener('resize', requestRevealCheck);
-  checkRevealElements();
+  window.addEventListener('load', requestRevealCheck, { once: true });
+  window.addEventListener('pageshow', requestRevealCheck);
+
+  INITIAL_REVEAL_CHECK_DELAYS.forEach((delay) => {
+    window.setTimeout(requestRevealCheck, delay);
+  });
 }
 
 export function initRevealFallback() {
@@ -176,14 +182,6 @@ export function initRevealFallback() {
   const nativeRevealSupported = supportsNativeRevealAnimations();
   const reducedMotion = prefersReducedMotion();
 
-  if (nativeRevealSupported) {
-    console.info(`${LOG_PREFIX} Native CSS animation-trigger supported; JS fallback not needed.`, {
-      revealElementCount: revealElements.length,
-    });
-    revealElements.forEach((element) => element.classList.add(REVEALED_CLASS));
-    return;
-  }
-
   if (reducedMotion) {
     console.info(`${LOG_PREFIX} Reduced motion requested; revealing elements without animation.`, {
       revealElementCount: revealElements.length,
@@ -192,9 +190,15 @@ export function initRevealFallback() {
     return;
   }
 
-  console.info(`${LOG_PREFIX} Native CSS animation-trigger unsupported; JS fallback active.`, {
-    revealElementCount: revealElements.length,
-  });
+  console.info(
+    nativeRevealSupported
+      ? `${LOG_PREFIX} Native CSS animation-trigger supported; using JS driver for consistent trigger timing.`
+      : `${LOG_PREFIX} Native CSS animation-trigger unsupported; JS fallback active.`,
+    {
+      revealElementCount: revealElements.length,
+      triggerViewportRatio: TRIGGER_VIEWPORT_RATIO,
+    }
+  );
   console.info(`${LOG_PREFIX} Using JS-driven viewport scroll fallback.`, {
     triggerViewportRatio: TRIGGER_VIEWPORT_RATIO,
   });
