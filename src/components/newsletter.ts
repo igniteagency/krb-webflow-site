@@ -20,7 +20,7 @@ type NewsletterPeriod = {
 };
 
 export function initNewsletter() {
-  const components = document.querySelectorAll<HTMLElement>(COMPONENT_SELECTOR);
+  const components = getNewsletterComponents();
 
   components.forEach((component) => {
     const mainDetails = getMainNewsletterDetails(component);
@@ -32,6 +32,13 @@ export function initNewsletter() {
     initNewsletterTableOfContents(component);
     initNewsletterLightbox(component);
   });
+}
+
+function getNewsletterComponents() {
+  const components = Array.from(document.querySelectorAll<HTMLElement>(COMPONENT_SELECTOR));
+  if (components.length) return components;
+
+  return Array.from(document.querySelectorAll<HTMLElement>(NEWSLETTER_CONTENT_SELECTOR));
 }
 
 function populateSideNav(component: HTMLElement) {
@@ -442,7 +449,9 @@ function initNewsletterLightbox(component: HTMLElement) {
 
   initLightboxGallery({
     root: richText,
-    template: component.querySelector<HTMLElement>('[data-lightbox-template], [data-newsletter-lightbox-template]'),
+    template: component.querySelector<HTMLElement>(
+      '[data-lightbox-template], [data-newsletter-lightbox-template]'
+    ),
     label: 'Newsletter image gallery',
     initialisedKey: 'lightboxInitialised',
     imageIndexAttribute: 'newsletterLightboxIndex',
