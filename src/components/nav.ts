@@ -131,19 +131,23 @@ export function initNav() {
     );
 
     const isMenuOpen = () => {
-      if (!isTabletDown()) return false;
-
+      const navButtonEl = navbarWrapperEl.querySelector<HTMLElement>(WEBFLOW_NAV_BUTTON_SELECTOR);
+      const overlayEl = navButtonEl?.getAttribute('aria-controls')
+        ? document.getElementById(navButtonEl.getAttribute('aria-controls') || '')
+        : null;
       const isWebflowMenuOpen =
-        navbarWrapperEl.querySelector(
-          `${WEBFLOW_NAV_BUTTON_SELECTOR}.${WEBFLOW_OPEN_CLASS}, ${WEBFLOW_NAV_MENU_SELECTOR}.${WEBFLOW_OPEN_CLASS}, ${WEBFLOW_NAV_MENU_SELECTOR}[data-nav-menu-open]`
-        ) !== null;
-      const isSubmenuOpen = menuItemEls.some((itemEl) =>
-        itemEl
-          .querySelector<HTMLElement>(NAV_MENU_ITEM_LIST_SELECTOR)
-          ?.classList.contains(OPEN_CLASS)
-      );
+        navButtonEl?.classList.contains(WEBFLOW_OPEN_CLASS) ||
+        navButtonEl?.getAttribute('aria-expanded') === 'true' ||
+        overlayEl?.style.display === 'block';
+      const isSubmenuOpen =
+        isTabletDown() &&
+        menuItemEls.some((itemEl) =>
+          itemEl
+            .querySelector<HTMLElement>(NAV_MENU_ITEM_LIST_SELECTOR)
+            ?.classList.contains(OPEN_CLASS)
+        );
 
-      return isWebflowMenuOpen || isSubmenuOpen;
+      return Boolean(isWebflowMenuOpen || isSubmenuOpen);
     };
 
     const updateBodyScrollLock = () => {
@@ -287,7 +291,7 @@ export function initNav() {
     webflowMenuEls.forEach((menuEl) => {
       webflowMenuObserver.observe(menuEl, {
         attributes: true,
-        attributeFilter: ['class', 'style', 'data-nav-menu-open'],
+        attributeFilter: ['aria-expanded', 'class', 'style', 'data-nav-menu-open'],
       });
     });
 
