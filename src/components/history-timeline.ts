@@ -226,6 +226,24 @@ class HistoryTimeline {
     }) as SwiperInstance;
 
     this.mainSwiper.on('slideChange', () => this.syncToSlide(this.mainSwiper?.realIndex || 0));
+    this.navSwiper.on('slideChange', () => this.syncMainToNav());
+  }
+
+  private syncMainToNav() {
+    if (!this.navSwiper || !this.mainSwiper || !this.slides.length) return;
+
+    const index = this.getLogicalNavIndex(this.navSwiper.activeIndex);
+    this.navDisplayIndex = this.navSwiper.activeIndex;
+    this.updateNavState(index);
+
+    if (this.mainSwiper.realIndex === index) return;
+
+    if (this.mainSwiper.slideToLoop) {
+      this.mainSwiper.slideToLoop(index, this.speed);
+      return;
+    }
+
+    this.mainSwiper.slideTo(index, this.speed);
   }
 
   private syncToSlide(index: number, speed = this.speed) {
@@ -252,7 +270,7 @@ class HistoryTimeline {
 
     const targetIndex = this.getClosestNavDisplayIndex(index);
     this.navDisplayIndex = targetIndex;
-    this.navSwiper.slideTo(targetIndex, speed);
+    this.navSwiper.slideTo(targetIndex, speed, false);
 
     const middleIndex = this.getMiddleNavDisplayIndex(index);
     if (!crossesLoopBoundary || targetIndex === middleIndex) return;
