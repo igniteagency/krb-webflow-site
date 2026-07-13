@@ -5,6 +5,9 @@ const NAV_MENU_ITEM_LIST_SELECTOR = '.navbar_menu-content_item-list';
 const NAV_MENU_TRIGGER_SELECTOR = ':scope > a.heading-style-h5';
 const NAV_MENU_BACK_SELECTOR =
   '[data-nav-menu-back], .navbar_menu-back, .navbar_menu-content_item-back';
+const WEBFLOW_NAV_BUTTON_SELECTOR = '.w-nav-button';
+const WEBFLOW_NAV_MENU_SELECTOR = '.w-nav-menu';
+const WEBFLOW_OPEN_CLASS = 'w--open';
 
 const HIDE_THRESHOLD = 100;
 const TABLET_BREAKPOINT = 991;
@@ -12,6 +15,19 @@ const HIDDEN_CLASS = 'is-hidden';
 const TRANSPARENT_CLASS = 'is-transparent';
 const OPEN_CLASS = 'is-open';
 const OVERVIEW_LABEL = 'overview';
+
+type BodyScrollLockState = {
+  scrollY: number;
+  bodyPosition: string;
+  bodyTop: string;
+  bodyLeft: string;
+  bodyRight: string;
+  bodyWidth: string;
+  bodyOverflow: string;
+  htmlOverflow: string;
+};
+
+let bodyScrollLockState: BodyScrollLockState | null = null;
 
 function isTabletDown() {
   return window.matchMedia(`(max-width: ${TABLET_BREAKPOINT}px)`).matches;
@@ -41,6 +57,56 @@ function getBackButton(listEl: HTMLElement) {
   return backLabel?.closest<HTMLElement>('a, button, .button_component') ?? backLabel ?? null;
 }
 
+function setBodyScrollLocked(shouldLock: boolean) {
+  if (shouldLock) {
+    if (bodyScrollLockState) return;
+
+    const scrollY = window.scrollY;
+    bodyScrollLockState = {
+      scrollY,
+      bodyPosition: document.body.style.position,
+      bodyTop: document.body.style.top,
+      bodyLeft: document.body.style.left,
+      bodyRight: document.body.style.right,
+      bodyWidth: document.body.style.width,
+      bodyOverflow: document.body.style.overflow,
+      htmlOverflow: document.documentElement.style.overflow,
+    };
+
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return;
+  }
+
+  if (!bodyScrollLockState) return;
+
+  const {
+    scrollY,
+    bodyPosition,
+    bodyTop,
+    bodyLeft,
+    bodyRight,
+    bodyWidth,
+    bodyOverflow,
+    htmlOverflow,
+  } = bodyScrollLockState;
+
+  bodyScrollLockState = null;
+  document.body.style.position = bodyPosition;
+  document.body.style.top = bodyTop;
+  document.body.style.left = bodyLeft;
+  document.body.style.right = bodyRight;
+  document.body.style.width = bodyWidth;
+  document.body.style.overflow = bodyOverflow;
+  document.documentElement.style.overflow = htmlOverflow;
+  window.scrollTo(0, scrollY);
+}
+
 export function initNav() {
   const navbarWrapperEls = document.querySelectorAll<HTMLElement>(NAVBAR_WRAPPER_SELECTOR);
 
@@ -64,6 +130,26 @@ export function initNav() {
       navbarWrapperEl.querySelectorAll<HTMLElement>(NAV_MENU_ITEM_SELECTOR)
     );
 
+    const isMenuOpen = () => {
+      if (!isTabletDown()) return false;
+
+      const isWebflowMenuOpen =
+        navbarWrapperEl.querySelector(
+          `${WEBFLOW_NAV_BUTTON_SELECTOR}.${WEBFLOW_OPEN_CLASS}, ${WEBFLOW_NAV_MENU_SELECTOR}.${WEBFLOW_OPEN_CLASS}, ${WEBFLOW_NAV_MENU_SELECTOR}[data-nav-menu-open]`
+        ) !== null;
+      const isSubmenuOpen = menuItemEls.some((itemEl) =>
+        itemEl
+          .querySelector<HTMLElement>(NAV_MENU_ITEM_LIST_SELECTOR)
+          ?.classList.contains(OPEN_CLASS)
+      );
+
+      return isWebflowMenuOpen || isSubmenuOpen;
+    };
+
+    const updateBodyScrollLock = () => {
+      setBodyScrollLocked(isMenuOpen());
+    };
+
     const closeMenuLists = () => {
       menuItemEls.forEach((itemEl) => {
         const triggerEl = itemEl.querySelector<HTMLAnchorElement>(NAV_MENU_TRIGGER_SELECTOR);
@@ -72,6 +158,8 @@ export function initNav() {
         listEl?.classList.remove(OPEN_CLASS);
         triggerEl?.setAttribute('aria-expanded', 'false');
       });
+
+      updateBodyScrollLock();
     };
 
     menuItemEls.forEach((itemEl) => {
@@ -105,6 +193,8 @@ export function initNav() {
             listEl.classList.add(OPEN_CLASS);
             triggerEl.setAttribute('aria-expanded', 'true');
           }
+
+          updateBodyScrollLock();
         },
         { capture: true }
       );
@@ -113,13 +203,19 @@ export function initNav() {
         event.preventDefault();
         listEl.classList.remove(OPEN_CLASS);
         triggerEl.setAttribute('aria-expanded', 'false');
+        updateBodyScrollLock();
       });
     });
 
     closeMenuLists();
 
     window.addEventListener('resize', () => {
-      if (!isTabletDown()) closeMenuLists();
+      if (!isTabletDown()) {
+        closeMenuLists();
+        return;
+      }
+
+      updateBodyScrollLock();
     });
 
     document.addEventListener('keydown', (event) => {
@@ -134,7 +230,7 @@ export function initNav() {
       const currentScrollY = window.scrollY;
       const isPastThreshold = currentScrollY > HIDE_THRESHOLD;
       const isScrollingDown = currentScrollY > previousScrollY;
-      const isHiding = isPastThreshold && isScrollingDown;
+      const isHiding = isPastThreshold && isScrollingDown && !isMenuOpen();
 
       console.debug('updateNavState firing:', {
         currentScrollY,
@@ -169,6 +265,31 @@ export function initNav() {
       previousScrollY = currentScrollY;
       isTicking = false;
     };
+
+    const syncMenuState = () => {
+      updateBodyScrollLock();
+      updateNavState();
+    };
+
+    const webflowMenuEls = Array.from(
+      navbarWrapperEl.querySelectorAll<HTMLElement>(
+        `${WEBFLOW_NAV_BUTTON_SELECTOR}, ${WEBFLOW_NAV_MENU_SELECTOR}`
+      )
+    );
+
+    webflowMenuEls.forEach((menuEl) => {
+      menuEl.addEventListener('click', () => {
+        window.requestAnimationFrame(syncMenuState);
+      });
+    });
+
+    const webflowMenuObserver = new MutationObserver(syncMenuState);
+    webflowMenuEls.forEach((menuEl) => {
+      webflowMenuObserver.observe(menuEl, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-nav-menu-open'],
+      });
+    });
 
     window.addEventListener(
       'scroll',
