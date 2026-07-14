@@ -6,13 +6,27 @@
  */
 const COMPONENT_SELECTOR = '[data-slider-el="component"]';
 const SWIPER_JS_URL = 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js';
-const DEFAULT_SWIPER_SPEED_IN_MS = 300;
+const DEFAULT_SWIPER_SPEED_IN_MS = 600;
 const DURATION_ATTRIBUTE = 'sliderDuration';
+const SLIDE_DURATION_ATTRIBUTE = 'sliderSlideDuration';
 
 function getSliderDuration(swiperComponent: HTMLElement) {
   const duration = Number(swiperComponent.dataset[DURATION_ATTRIBUTE]);
 
   return Number.isFinite(duration) && duration > 0 ? duration : DEFAULT_SWIPER_SPEED_IN_MS;
+}
+
+function applySlideDurationOverrides(slideEls: NodeListOf<HTMLElement>) {
+  slideEls.forEach((slide) => {
+    const duration = slide.dataset[SLIDE_DURATION_ATTRIBUTE];
+    const durationNumber = Number(duration);
+
+    if (duration && Number.isFinite(durationNumber) && durationNumber > 0) {
+      slide.setAttribute('data-swiper-autoplay', duration);
+    } else {
+      slide.removeAttribute('data-swiper-autoplay');
+    }
+  });
 }
 
 class Slider {
@@ -64,6 +78,7 @@ class Slider {
           }
         : false;
       const speed = getSliderDuration(swiperComponent);
+      applySlideDurationOverrides(slideEls);
 
       this.swiper = new Swiper(swiperEl, {
         loop: false,
