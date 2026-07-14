@@ -447,11 +447,14 @@ function initNewsletterLightbox(component: HTMLElement) {
   const richText = getNewsletterRichText(component);
   if (!richText) return;
 
+  const templateSelector = '[data-lightbox-template], [data-newsletter-lightbox-template]';
+  const template =
+    component.querySelector<HTMLElement>(templateSelector) ||
+    document.querySelector<HTMLElement>(templateSelector);
+
   initLightboxGallery({
     root: richText,
-    template: component.querySelector<HTMLElement>(
-      '[data-lightbox-template], [data-newsletter-lightbox-template]'
-    ),
+    template,
     label: 'Newsletter image gallery',
     initialisedKey: 'lightboxInitialised',
     imageIndexAttribute: 'newsletterLightboxIndex',
