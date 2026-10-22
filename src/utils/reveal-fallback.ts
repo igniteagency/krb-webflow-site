@@ -1,208 +1,166 @@
 const REVEAL_SELECTOR = '[data-reveal], [data-reveal-stagger]';
-const REVEAL_STAGGER_CHILDREN_SELECTOR = ":scope > *:not(.display-contents):not([class*='spacer'])";
-const REVEALED_CLASS = 'is-revealed';
-const FALLBACK_CLASS = 'reveal-fallback';
-const LOG_PREFIX = '[KRB reveal fallback]';
-const TRIGGER_VIEWPORT_RATIO = 0.5;
-const INITIAL_REVEAL_CHECK_DELAYS = [0, 100, 500, 1000];
-const DEFAULT_REVEAL_DURATION = 800;
-const DEFAULT_REVEAL_EASE = 'cubic-bezier(0.19, 1, 0.22, 1)';
-const DEFAULT_REVEAL_STAGGER = 80;
-const DEFAULT_REVEAL_Y = '3rem';
-
-function supportsNativeRevealAnimations() {
-  return CSS.supports('animation-trigger: --reveal-trigger play-once');
-}
-
-function prefersReducedMotion() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-function getRootCustomProperty(name: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-function parseTime(value: string, fallback: number) {
-  if (!value) return fallback;
-
-  const numericValue = parseFloat(value);
-  if (Number.isNaN(numericValue)) return fallback;
-
-  return value.includes('ms') ? numericValue : numericValue * 1000;
-}
-
-function getRevealDuration() {
-  return parseTime(getRootCustomProperty('--reveal-duration'), DEFAULT_REVEAL_DURATION);
-}
-
-function getRevealStagger() {
-  return parseTime(getRootCustomProperty('--reveal-stagger'), DEFAULT_REVEAL_STAGGER);
-}
-
-function getRevealEase() {
-  return getRootCustomProperty('--reveal-ease') || DEFAULT_REVEAL_EASE;
-}
-
-function getRevealDistance() {
-  return (
-    getRootCustomProperty('--animation--fade-distance') ||
-    getRootCustomProperty('--reveal-y') ||
-    DEFAULT_REVEAL_Y
-  );
-}
-
-function getStaggerChildren(element: HTMLElement) {
-  return Array.from(element.querySelectorAll<HTMLElement>(REVEAL_STAGGER_CHILDREN_SELECTOR)).filter(
-    (child) => !child.closest('[data-stagger-stop]')
-  );
-}
-
-function getRevealTargets(element: HTMLElement) {
-  return element.hasAttribute('data-reveal-stagger') ? getStaggerChildren(element) : [element];
-}
-
-function setStaggerIndexes(element: HTMLElement) {
-  if (!element.hasAttribute('data-reveal-stagger')) return;
-
-  getStaggerChildren(element).forEach((child, index) => {
-    child.style.setProperty('--reveal-index', String(index));
-  });
-}
-
-function setFallbackInitialState(element: HTMLElement) {
-  getRevealTargets(element).forEach((target) => {
-    target.style.opacity = getRootCustomProperty('--reveal-opacity') || '0';
-    target.style.transform = `translateY(${getRevealDistance()})`;
-  });
-}
-
-function animateRevealTarget(target: HTMLElement, delay: number) {
-  const duration = getRevealDuration();
-  const easing = getRevealEase();
-  const revealY = getRevealDistance();
-
-  target.style.opacity = getRootCustomProperty('--reveal-opacity') || '0';
-  target.style.transform = `translateY(${revealY})`;
-
-  if (target.animate) {
-    const animation = target.animate(
-      [
-        { opacity: target.style.opacity, transform: `translateY(${revealY})` },
-        { opacity: '1', transform: 'translateY(0)' },
-      ],
-      {
-        delay,
-        duration,
-        easing,
-        fill: 'forwards',
-      }
-    );
-
-    animation.onfinish = () => {
-      target.style.opacity = '1';
-      target.style.transform = 'translateY(0)';
-    };
-
-    return;
-  }
-
-  window.setTimeout(() => {
-    target.style.transition = `opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`;
-    target.style.opacity = '1';
-    target.style.transform = 'translateY(0)';
-  }, delay);
-}
-
-function reveal(element: HTMLElement, shouldLog = false) {
-  if (element.classList.contains(REVEALED_CLASS)) return false;
-
-  element.classList.add(REVEALED_CLASS);
-
-  const stagger = getRevealStagger();
-  getRevealTargets(element).forEach((target, index) => {
-    animateRevealTarget(target, element.hasAttribute('data-reveal-stagger') ? index * stagger : 0);
-  });
-
-  if (shouldLog) {
-    console.info(`${LOG_PREFIX} Revealed element.`, { element });
-  }
-
-  return true;
-}
-
-function initViewportFallback(revealElements: NodeListOf<HTMLElement>) {
-  const unrevealedElements = new Set(revealElements);
-  let isTicking = false;
-
-  revealElements.forEach(setFallbackInitialState);
-
-  const checkRevealElements = () => {
-    const triggerPoint = window.innerHeight * TRIGGER_VIEWPORT_RATIO;
-
-    unrevealedElements.forEach((element) => {
-      if (element.getBoundingClientRect().top > triggerPoint) return;
-
-      reveal(element, true);
-      unrevealedElements.delete(element);
-    });
-
-    if (!unrevealedElements.size) {
-      window.removeEventListener('scroll', requestRevealCheck);
-      window.removeEventListener('resize', requestRevealCheck);
-    }
-  };
-
-  const requestRevealCheck = () => {
-    if (isTicking) return;
-
-    isTicking = true;
-    window.requestAnimationFrame(() => {
-      isTicking = false;
-      checkRevealElements();
-    });
-  };
-
-  window.addEventListener('scroll', requestRevealCheck, { passive: true });
-  window.addEventListener('resize', requestRevealCheck);
-  window.addEventListener('load', requestRevealCheck, { once: true });
-  window.addEventListener('pageshow', requestRevealCheck);
-
-  INITIAL_REVEAL_CHECK_DELAYS.forEach((delay) => {
-    window.setTimeout(requestRevealCheck, delay);
-  });
-}
+const STAGGER_SELECTOR = ":scope > *:not(.display-contents):not([class*='spacer'])";
 
 export function initRevealFallback() {
-  const revealElements = document.querySelectorAll<HTMLElement>(REVEAL_SELECTOR);
-
-  if (!revealElements.length) return;
-
-  revealElements.forEach(setStaggerIndexes);
-
-  const nativeRevealSupported = supportsNativeRevealAnimations();
-  const reducedMotion = prefersReducedMotion();
-
-  if (reducedMotion) {
-    console.info(`${LOG_PREFIX} Reduced motion requested; revealing elements without animation.`, {
-      revealElementCount: revealElements.length,
+  const elements = Array.from(document.querySelectorAll<HTMLElement>(REVEAL_SELECTOR));
+  if (!elements.length) return;
+  const targets = (element: HTMLElement) =>
+    element.hasAttribute('data-reveal-stagger')
+      ? Array.from(element.querySelectorAll<HTMLElement>(STAGGER_SELECTOR)).filter(
+          (child) => !child.closest('[data-stagger-stop]')
+        )
+      : [element];
+  elements.forEach((element) => {
+    if (element.hasAttribute('data-reveal-stagger')) {
+      targets(element).forEach((child, index) => {
+        child.style.setProperty('--reveal-index', String(index));
+      });
+    }
+  });
+  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const showWithoutMotion = () => {
+    elements.forEach((element) => {
+      element.classList.add('is-revealed');
+      targets(element).forEach((target) => {
+        target.style.animation = 'none';
+        target.style.opacity = '1';
+      });
     });
-    revealElements.forEach((element) => element.classList.add(REVEALED_CLASS));
+  };
+  if (motion.matches) {
+    showWithoutMotion();
     return;
   }
+  if (typeof CSS !== 'undefined' && CSS.supports('animation-trigger: --reveal-trigger play-once'))
+    return;
 
-  console.info(
-    nativeRevealSupported
-      ? `${LOG_PREFIX} Native CSS animation-trigger supported; using JS driver for consistent trigger timing.`
-      : `${LOG_PREFIX} Native CSS animation-trigger unsupported; JS fallback active.`,
-    {
-      revealElementCount: revealElements.length,
-      triggerViewportRatio: TRIGGER_VIEWPORT_RATIO,
+  // The published .reveal-fallback CSS starts persistent animations on
+  // .is-revealed. Leave that class off; own temporary inline state only.
+  const pending = new Set(elements);
+  const restorers = new Map<HTMLElement, () => void>();
+  const animations = new Set<Animation>();
+  let observer: IntersectionObserver | undefined;
+  const property = (name: string) =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const time = (name: string, fallback: number) => {
+    const value = property(name);
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) && parsed >= 0
+      ? parsed * (value.endsWith('ms') ? 1 : 1000)
+      : fallback;
+  };
+  const cleanup = () => {
+    if (pending.size) return;
+    observer?.disconnect();
+    window.removeEventListener('resize', observe);
+    window.removeEventListener('pageshow', observe);
+    window.removeEventListener('load', observe);
+    if (!animations.size) motion.removeEventListener('change', reduceMotion);
+  };
+  const show = (target: HTMLElement) => {
+    restorers.get(target)?.();
+    restorers.delete(target);
+  };
+  const reveal = (element: HTMLElement, animate = true) => {
+    if (!pending.delete(element)) return;
+    element.classList.add('is-revealed');
+    observer?.unobserve(element);
+    targets(element).forEach((target, index) => {
+      if (!animate) {
+        show(target);
+        return;
+      }
+      try {
+        const animation = target.animate(
+          [
+            {
+              opacity: property('--reveal-opacity') || '0',
+              transform: `translateY(${property('--animation--fade-distance') || property('--reveal-y') || '3rem'})`,
+            },
+            { opacity: '1', transform: 'translateY(0)' },
+          ],
+          {
+            duration: time('--reveal-duration', 800),
+            easing: property('--reveal-ease') || 'cubic-bezier(0.19, 1, 0.22, 1)',
+            delay: element.hasAttribute('data-reveal-stagger')
+              ? index * time('--reveal-stagger', 80)
+              : 0,
+            fill: 'both',
+          }
+        );
+        animations.add(animation);
+        const finish = () => {
+          animation.onfinish = animation.oncancel = null;
+          show(target);
+          animations.delete(animation);
+          animation.cancel();
+          cleanup();
+        };
+        animation.onfinish = animation.oncancel = finish;
+      } catch {
+        show(target);
+      }
+    });
+    cleanup();
+  };
+  function reduceMotion() {
+    if (!motion.matches) return;
+    animations.forEach((animation) => animation.cancel());
+    restorers.forEach((restore) => restore());
+    restorers.clear();
+    elements.forEach((element) => reveal(element, false));
+    showWithoutMotion();
+    cleanup();
+  }
+  function observe() {
+    observer?.disconnect();
+    try {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && entry.boundingClientRect.top <= window.innerHeight * 0.5) {
+              reveal(entry.target as HTMLElement);
+            }
+          });
+        },
+        { rootMargin: `0px 0px -${window.innerHeight * 0.5}px 0px`, threshold: 0 }
+      );
+      pending.forEach((element) => {
+        // Initial/deep-link, load, bfcache and resize only; no scroll layout loop.
+        if (element.getBoundingClientRect().top <= window.innerHeight * 0.5) reveal(element);
+        else observer?.observe(element);
+      });
+    } catch {
+      elements.forEach((element) => reveal(element, false));
     }
-  );
-  console.info(`${LOG_PREFIX} Using JS-driven viewport scroll fallback.`, {
-    triggerViewportRatio: TRIGGER_VIEWPORT_RATIO,
-  });
-
-  document.documentElement.classList.add(FALLBACK_CLASS);
-  initViewportFallback(revealElements);
+    cleanup();
+  }
+  if (
+    !('IntersectionObserver' in window) ||
+    elements.some((element) => targets(element).some((target) => !target.animate))
+  ) {
+    elements.forEach((element) => reveal(element, false));
+    return;
+  }
+  try {
+    elements.forEach((element) => {
+      targets(element).forEach((target) => {
+        if (restorers.has(target)) return;
+        const opacity = target.style.getPropertyValue('opacity');
+        const priority = target.style.getPropertyPriority('opacity');
+        restorers.set(target, () => {
+          if (opacity) target.style.setProperty('opacity', opacity, priority);
+          else target.style.removeProperty('opacity');
+        });
+        target.style.opacity = property('--reveal-opacity') || '0';
+      });
+    });
+    motion.addEventListener('change', reduceMotion);
+    window.addEventListener('resize', observe);
+    window.addEventListener('pageshow', observe);
+    window.addEventListener('load', observe);
+    observe();
+  } catch {
+    elements.forEach((element) => reveal(element, false));
+  }
 }
